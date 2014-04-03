@@ -179,6 +179,33 @@ func (b *Bucket) GetResponse(path string) (*http.Response, error) {
 	panic("unreachable")
 }
 
+// Head retrieves an object's headers (metadata) from an S3 bucket.
+//
+// See http://goo.gl/ZjZeF for details.
+func (b *Bucket) Head(path string) (map[string][]string, error) {
+	req := &request{
+		bucket: b.Name,
+		method: "HEAD",
+		path:   path,
+	}
+	err := b.S3.prepare(req)
+	if err != nil {
+		return nil, err
+	}
+	for attempt := attempts.Start(); attempt.Next(); {
+		resp, err := b.S3.run(req, nil)
+		if shouldRetry(err) && attempt.HasNext() {
+			continue
+		}
+		if err != nil {
+			return nil, err
+		}
+		defer resp.Body.Close()
+		return resp.Header, nil
+	}
+	panic("unreachable")
+}
+
 // Put inserts an object into the S3 bucket.
 //
 // See http://goo.gl/FEBPD for details.
