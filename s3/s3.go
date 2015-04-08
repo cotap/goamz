@@ -158,9 +158,16 @@ func (b *Bucket) GetReader(path string) (rc io.ReadCloser, err error) {
 // It is the caller's responsibility to call Close on rc when
 // finished reading.
 func (b *Bucket) GetResponse(path string) (*http.Response, error) {
+	return b.GetResponseHeader(path, map[string][]string{})
+}
+
+// GetResponse - like Put, retrieves an object from an S3 bucket returning the http response
+// Pass in custom headers to override defaults.
+func (b *Bucket) GetResponseHeader(path string, headers map[string][]string) (*http.Response, error) {
 	req := &request{
-		bucket: b.Name,
-		path:   path,
+		bucket:  b.Name,
+		path:    path,
+		headers: headers,
 	}
 	err := b.S3.prepare(req)
 	if err != nil {
@@ -580,7 +587,9 @@ func (s3 *S3) run(req *request, resp interface{}) (*http.Response, error) {
 		dump, _ := httputil.DumpResponse(hresp, true)
 		log.Printf("} -> %s\n", dump)
 	}
-	if hresp.StatusCode != 200 && hresp.StatusCode != 204 {
+	switch hresp.StatusCode {
+	case 200, 204, 206:
+	default:
 		hresp.Body.Close()
 		return nil, buildError(hresp)
 	}
